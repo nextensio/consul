@@ -1758,6 +1758,20 @@ func (d *DNSServer) nodeServiceRecords(dc string, node structs.CheckServiceNode,
 	return d.makeRecordFromFQDN(dc, serviceAddr, node, req, ttl, cfg, maxRecursionLevel)
 }
 
+func (d *DNSServer) generateServiceMeta(qName string, node *structs.Node, ttl time.Duration, extraTxt string) []dns.RR {
+	extra := make([]dns.RR, 0, len(node.Meta))
+	extra = append(extra, &dns.TXT{
+		Hdr: dns.RR_Header{
+			Name:   qName,
+			Rrtype: dns.TypeTXT,
+			Class:  dns.ClassINET,
+			Ttl:    uint32(ttl / time.Second),
+		},
+		Txt: []string{extraTxt},
+	})
+	return extra
+}
+
 func (d *DNSServer) generateMeta(qName string, node *structs.Node, ttl time.Duration) []dns.RR {
 	extra := make([]dns.RR, 0, len(node.Meta))
 	for key, value := range node.Meta {
@@ -1798,6 +1812,11 @@ func (d *DNSServer) serviceSRVRecords(cfg *dnsConfig, dc string, nodes structs.C
 
 		resp.Answer = append(resp.Answer, answers...)
 		resp.Extra = append(resp.Extra, extra...)
+
+		for k, v := range node.Service.Meta {
+			svc := k + ":" + v
+			resp.Extra = append(resp.Extra, d.generateServiceMeta(fmt.Sprintf("%s.node.%s.%s", node.Node.Node, dc, d.domain), node.Node, ttl, svc)...)
+		}
 
 		if cfg.NodeMetaTXT {
 			resp.Extra = append(resp.Extra, d.generateMeta(fmt.Sprintf("%s.node.%s.%s", node.Node.Node, dc, d.domain), node.Node, ttl)...)
