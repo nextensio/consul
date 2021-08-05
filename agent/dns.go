@@ -1796,8 +1796,17 @@ func (d *DNSServer) generateMeta(qName string, node *structs.Node, ttl time.Dura
 // serviceARecords is used to add the SRV records for a service lookup
 func (d *DNSServer) serviceSRVRecords(cfg *dnsConfig, dc string, nodes structs.CheckServiceNodes, req, resp *dns.Msg, ttl time.Duration, maxRecursionLevel int) {
 	handled := make(map[string]struct{})
+	metaHandled := make(map[string]struct{})
 
 	for _, node := range nodes {
+		meta, hasMeta := node.Service.Meta["NextensioPod"]
+		if hasMeta {
+			if _, exists := metaHandled[meta]; exists {
+				//Service handled already so continue
+				continue
+			}
+		}
+
 		// Avoid duplicate entries, possible if a node has
 		// the same service the same port, etc.
 		serviceAddress := d.agent.TranslateServiceAddress(dc, node.Service.Address, node.Service.TaggedAddresses, TranslateAddressAcceptAny)
@@ -1820,6 +1829,10 @@ func (d *DNSServer) serviceSRVRecords(cfg *dnsConfig, dc string, nodes structs.C
 
 		if cfg.NodeMetaTXT {
 			resp.Extra = append(resp.Extra, d.generateMeta(fmt.Sprintf("%s.node.%s.%s", node.Node.Node, dc, d.domain), node.Node, ttl)...)
+		}
+		if hasMeta {
+			// Set the service handled flag
+			metaHandled[meta] = struct{}{}
 		}
 	}
 }
