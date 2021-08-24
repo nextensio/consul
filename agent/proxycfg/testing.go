@@ -1626,7 +1626,16 @@ func TestConfigSnapshotIngress(t testing.T) *ConfigSnapshot {
 
 func TestConfigSnapshotIngressWithTLSListener(t testing.T) *ConfigSnapshot {
 	snap := testConfigSnapshotIngressGateway(t, true, "tcp", "default")
-	snap.IngressGateway.TLSEnabled = true
+	snap.IngressGateway.TLSConfig.Enabled = true
+	return snap
+}
+
+func TestConfigSnapshotIngressWithGatewaySDS(t testing.T) *ConfigSnapshot {
+	snap := testConfigSnapshotIngressGateway(t, true, "tcp", "default")
+	snap.IngressGateway.TLSConfig.SDS = &structs.GatewayTLSSDSConfig{
+		ClusterName:  "sds-cluster",
+		CertResource: "cert-resource",
+	}
 	return snap
 }
 
